@@ -1,0 +1,38 @@
+version: "3"
+services:
+  main:
+    build:
+      context: .
+      dockerfile: dev.Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ".:/usr/src/app"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/dinopoll
+  db:
+    image: postgres:alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dinopoll
+    volumes:
+      - "db_volume:/var/lib/postgresql/data"
+  pgweb:
+    image: sosedoff/pgweb
+    ports:
+      - "3002:8081"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/dinopoll?sslmode=disable
+    depends_on:
+      - db
+  ngrok:
+    image: wernight/ngrok
+    environment:
+      NGROK_PORT: main:3000
+    ports:
+      - "3001:4040"
+    env_file: .ngrok.env
+volumes:
+  db_volume:
