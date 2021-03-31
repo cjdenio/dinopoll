@@ -40,6 +40,13 @@ export default (channel: string, initialTitle: string): View => {
               text: { type: "plain_text", text: "Anonymous poll" },
               value: "anonymous",
             },
+            {
+              text: {
+                type: "plain_text",
+                text: "Allow voting for multiple options",
+              },
+              value: "multipleVotes",
+            },
           ],
         },
       },
@@ -48,7 +55,7 @@ export default (channel: string, initialTitle: string): View => {
         block_id: "title",
         label: {
           type: "plain_text",
-          text: "Poll title",
+          text: "Poll question",
         },
         element: {
           initial_value: initialTitle,

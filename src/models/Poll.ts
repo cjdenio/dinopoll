@@ -34,6 +34,11 @@ class Poll extends BaseEntity {
   anonymous: boolean;
 
   @Column({
+    default: false,
+  })
+  multipleVotes: boolean;
+
+  @Column({
     default: true,
   })
   open: boolean;

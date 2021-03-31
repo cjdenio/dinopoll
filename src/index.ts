@@ -52,6 +52,9 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
   poll.anonymous = values.options.options.selected_options.some(
     (v: Option) => v.value == "anonymous"
   );
+  poll.multipleVotes = values.options.options.selected_options.some(
+    (v: Option) => v.value == "multipleVotes"
+  );
   poll.channel = JSON.parse(view.private_metadata).channel;
 
   poll = await poll.save();
@@ -112,25 +115,49 @@ app.action(/vote:(.+):(.+)/, async ({ action, ack, payload, body }) => {
     return;
   }
 
-  // Check to see if the user's already voted
-  const userVote = await Vote.findOne(
-    {
-      user: body.user.id,
-      poll: { id: parseInt(poll_id) },
-    },
-    { relations: ["option"] }
-  );
-  if (userVote) {
-    // They've already voted
-    await userVote.remove();
+  if (poll.multipleVotes) {
+    // the poll allows for multiple votes
 
-    // Are they voting for the same option? if so, don't switch their vote
-    if (userVote.option.id == parseInt(option_id)) {
+    // check to see if the user's already voted for this option
+    const userVote = await Vote.findOne(
+      {
+        user: body.user.id,
+        poll: { id: parseInt(poll_id) },
+        option: { id: parseInt(option_id) },
+      },
+      { relations: ["option"] }
+    );
+
+    if (userVote) {
+      await userVote.remove();
       await refreshPoll(parseInt(poll_id));
       return;
     }
+  } else {
+    // the poll only allows 1 vote
+
+    // Check to see if the user's already voted
+    const userVote = await Vote.findOne(
+      {
+        user: body.user.id,
+        poll: { id: parseInt(poll_id) },
+      },
+      { relations: ["option"] }
+    );
+
+    if (userVote) {
+      // They've already voted
+      await userVote.remove();
+
+      // Are they voting for the same option? if so, don't switch their vote
+      if (userVote.option.id == parseInt(option_id)) {
+        await refreshPoll(parseInt(poll_id));
+        return;
+      }
+    }
   }
 
+  // We've reached the end, so VOTE!!!
   const option = await PollOption.findOneOrFail(parseInt(option_id));
 
   // Create a vote
@@ -142,17 +169,16 @@ app.action(/vote:(.+):(.+)/, async ({ action, ack, payload, body }) => {
 
   await vote.save();
 
-  // Re-fetch the poll
-
+  // Refresh the poll
   await refreshPoll(parseInt(poll_id));
 });
 
-async function getPoll(pollId: number): Promise<Poll> {
+async function getPoll(id: number): Promise<Poll> {
   return await Poll.createQueryBuilder("poll")
     .leftJoinAndSelect("poll.options", "option")
     .leftJoinAndSelect("option.votes", "option.vote")
     .leftJoinAndSelect("poll.votes", "vote")
-    .where("poll.id = :id", { id: pollId })
+    .where("poll.id = :id", { id })
     .orderBy("option.id", "ASC")
     .getOneOrFail();
 }

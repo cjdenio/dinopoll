@@ -22,7 +22,7 @@ export default (poll: Poll): (Block | KnownBlock)[] => {
         type: "mrkdwn",
         text: `:${poll.open ? "clipboard" : "lock"}: *${poll.title}*${
           poll.anonymous ? " (responses are anonymous)" : ""
-        }`,
+        }${poll.multipleVotes ? " (you may vote for multiple options)" : ""}`,
       },
     },
     ...poll.options.map((opt): Block | KnownBlock => {
