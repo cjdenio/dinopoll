@@ -1,4 +1,12 @@
-import { App, BlockAction, BlockElementAction, Option } from "@slack/bolt";
+import {
+  App,
+  BlockAction,
+  BlockElementAction,
+  ExpressReceiver,
+  Option,
+} from "@slack/bolt";
+
+import express from "express";
 
 import "reflect-metadata";
 import { createConnection } from "typeorm";
@@ -9,11 +17,77 @@ import Vote from "./models/Vote";
 import Poll from "./models/Poll";
 import PollOption from "./models/PollOption";
 import message from "./message";
+import Token from "./models/Token";
+
+const receiver = new ExpressReceiver({
+  signingSecret: process.env.SLACK_SIGNING_SECRET as string,
+});
+
+receiver.router.post("/create", express.json(), async (req, res) => {
+  try {
+    const { title, options, channel } = req.body;
+    const tok = req.headers.authorization?.slice("Bearer ".length);
+    if (!tok) {
+      throw new Error("no token provided");
+    }
+
+    const token = await Token.findOneOrFail({ token: tok });
+
+    const poll = new Poll();
+
+    poll.title = title;
+    poll.options = options.map((i: string) => {
+      const option = new PollOption();
+      option.name = i;
+      return option;
+    });
+    poll.channel = channel;
+
+    // TODO
+    poll.createdBy = token.user;
+
+    await createPoll(poll);
+
+    res.json({
+      ok: true,
+      message: "woop woop you did it",
+    });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      err: err.message,
+    });
+  }
+});
 
 const app = new App({
-  signingSecret: process.env.SLACK_SIGNING_SECRET,
   token: process.env.SLACK_TOKEN,
+  receiver,
 });
+
+async function createPoll(poll: Poll): Promise<Poll> {
+  poll = await poll.save();
+
+  const resp = await app.client.chat.postMessage({
+    blocks: message(await getPoll(poll.id)),
+    text: "This message can't be displayed in your client.",
+    channel: poll.channel,
+    token: process.env.SLACK_TOKEN,
+  });
+
+  poll.timestamp = (resp.message as { ts: string }).ts;
+
+  await poll.save();
+
+  await app.client.chat.postEphemeral({
+    text: `Poll successfully created! Run \`/dinopoll-toggle ${poll.id}\` to close the poll once you're done.`,
+    channel: poll.channel,
+    user: poll.createdBy,
+    token: process.env.SLACK_TOKEN,
+  });
+
+  return poll;
+}
 
 app.command("/dinopoll", async ({ client, ack, command }) => {
   await client.views.open({
@@ -73,23 +147,7 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
   poll.othersCanAdd = othersCanAdd;
   poll.channel = JSON.parse(view.private_metadata).channel;
 
-  poll = await poll.save();
-
-  const resp = await client.chat.postMessage({
-    blocks: message(await getPoll(poll.id)),
-    text: "This message can't be displayed in your client.",
-    channel: JSON.parse(view.private_metadata).channel,
-  });
-
-  poll.timestamp = (resp.message as { ts: string }).ts;
-
-  await poll.save();
-
-  await client.chat.postEphemeral({
-    text: `Poll successfully created! Run \`/dinopoll-toggle ${poll.id}\` to close the poll once you're done.`,
-    channel: JSON.parse(view.private_metadata).channel,
-    user: body.user.id,
-  });
+  await createPoll(poll);
 });
 
 app.command("/dinopoll-toggle", async ({ ack, command }) => {
@@ -292,7 +350,7 @@ async function main() {
   await createConnection({
     type: "postgres",
     url: process.env.DATABASE_URL,
-    entities: [Poll, PollOption, Vote],
+    entities: [Poll, PollOption, Vote, Token],
     synchronize: true,
   });
 
