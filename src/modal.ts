@@ -82,7 +82,7 @@ export default (channel: string, initialTitle: string): View => {
           type: "input",
           label: { type: "plain_text", text: `Option ${index + 1}` },
           block_id: `option${index + 1}`,
-          optional: index <= 1 ? false : true,
+          optional: true,
           element: {
             type: "plain_text_input",
             action_id: `option${index + 1}`,

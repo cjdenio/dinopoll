@@ -25,15 +25,18 @@ function buildProgressBar(progress: number, maxLength: number): string {
 }
 
 export default (poll: Poll): (Block | KnownBlock)[] => {
-  let mostVotes: null | PollOption = poll.options.reduce((acc, curr) => {
-    if (curr.votes.length > acc.votes.length) {
-      return curr;
-    } else {
-      return acc;
-    }
-  });
+  let mostVotes: null | PollOption =
+    poll.options.length == 0
+      ? null
+      : poll.options.reduce((acc, curr) => {
+          if (curr.votes.length > acc.votes.length) {
+            return curr;
+          } else {
+            return acc;
+          }
+        });
 
-  if (mostVotes.votes.length == 0) {
+  if (mostVotes?.votes.length == 0) {
     mostVotes = null;
   }
 

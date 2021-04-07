@@ -25,8 +25,10 @@ app.command("/dinopoll", async ({ client, ack, command }) => {
 });
 
 app.view("create", async ({ ack, payload, body, view, client }) => {
-  await ack();
   const values = view.state.values;
+  const othersCanAdd = values.options.options.selected_options.some(
+    (v: Option) => v.value == "othersCanAdd"
+  );
 
   const opts = [
     values.option1.option1.value,
@@ -34,6 +36,19 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
     values.option3.option3.value,
     values.option4.option4.value,
   ].filter((i) => i && i != "");
+
+  if (opts.length < 2 && !othersCanAdd) {
+    await ack({
+      response_action: "errors",
+      errors: {
+        option1:
+          'You need at least 2 options to create a poll, unless "Allow others to add options" is checked',
+      },
+    });
+    return;
+  } else {
+    await ack();
+  }
 
   const options = opts.map((opt) => {
     const option = new PollOption();
@@ -55,9 +70,7 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
   poll.multipleVotes = values.options.options.selected_options.some(
     (v: Option) => v.value == "multipleVotes"
   );
-  poll.othersCanAdd = values.options.options.selected_options.some(
-    (v: Option) => v.value == "othersCanAdd"
-  );
+  poll.othersCanAdd = othersCanAdd;
   poll.channel = JSON.parse(view.private_metadata).channel;
 
   poll = await poll.save();
