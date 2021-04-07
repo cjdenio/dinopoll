@@ -1,4 +1,4 @@
-import { Block, KnownBlock } from "@slack/bolt";
+import { ActionsBlock, Block, KnownBlock, SectionBlock } from "@slack/bolt";
 import Poll from "./models/Poll";
 import PollOption from "./models/PollOption";
 
@@ -37,14 +37,23 @@ export default (poll: Poll): (Block | KnownBlock)[] => {
     mostVotes = null;
   }
 
+  let tags = [];
+
+  if (poll.anonymous) {
+    tags.push("responses are anonymous");
+  }
+  if (poll.multipleVotes) {
+    tags.push("you may vote for multiple options");
+  }
+
   return [
     {
       type: "section",
       text: {
         type: "mrkdwn",
         text: `:${poll.open ? "clipboard" : "lock"}: *${poll.title}*${
-          poll.anonymous ? " (responses are anonymous)" : ""
-        }${poll.multipleVotes ? " (you may vote for multiple options)" : ""}`,
+          tags.length > 0 ? " (" + tags.join(", ") + ")" : ""
+        }`,
       },
     },
     ...poll.options.map((opt): Block | KnownBlock => {
@@ -81,6 +90,20 @@ export default (poll: Poll): (Block | KnownBlock)[] => {
           : {}),
       };
     }),
+    ...(poll.othersCanAdd
+      ? [
+          {
+            type: "actions",
+            elements: [
+              {
+                type: "button",
+                text: { type: "plain_text", text: "+ Add option" },
+                action_id: `addOption:${poll.id}`,
+              },
+            ],
+          } as ActionsBlock,
+        ]
+      : []),
     {
       type: "context",
       elements: [

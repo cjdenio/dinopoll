@@ -47,6 +47,13 @@ export default (channel: string, initialTitle: string): View => {
               },
               value: "multipleVotes",
             },
+            {
+              text: {
+                type: "plain_text",
+                text: "Allow others to add options",
+              },
+              value: "othersCanAdd",
+            },
           ],
         },
       },

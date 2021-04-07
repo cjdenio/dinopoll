@@ -55,6 +55,9 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
   poll.multipleVotes = values.options.options.selected_options.some(
     (v: Option) => v.value == "multipleVotes"
   );
+  poll.othersCanAdd = values.options.options.selected_options.some(
+    (v: Option) => v.value == "othersCanAdd"
+  );
   poll.channel = JSON.parse(view.private_metadata).channel;
 
   poll = await poll.save();
@@ -171,6 +174,83 @@ app.action(/vote:(.+):(.+)/, async ({ action, ack, payload, body }) => {
 
   // Refresh the poll
   await refreshPoll(parseInt(poll_id));
+});
+
+app.action(/addOption:(.+)/, async ({ ack, action, client, ...args }) => {
+  await ack();
+
+  const { trigger_id } = args.body as BlockAction;
+
+  const action_id = (action as BlockElementAction).action_id;
+  const matches = action_id.match(/addOption:(.+)/);
+  if (!matches) {
+    return;
+  }
+
+  const [, poll_id] = matches;
+
+  let poll = await Poll.findOne(parseInt(poll_id));
+
+  if (!poll || !poll.open || !poll.othersCanAdd) {
+    return;
+  }
+
+  await client.views.open({
+    trigger_id,
+    view: {
+      type: "modal",
+      private_metadata: JSON.stringify({ poll: poll_id }),
+      callback_id: "addOption",
+      title: { type: "plain_text", text: "Add option" },
+      submit: {
+        type: "plain_text",
+        text: "Add",
+      },
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `Add an option to *${poll.title}*`,
+          },
+        },
+        {
+          type: "input",
+          label: {
+            type: "plain_text",
+            text: "Option",
+          },
+          block_id: "option",
+          element: {
+            type: "plain_text_input",
+            action_id: "option",
+          },
+        },
+      ],
+    },
+  });
+});
+
+app.view("addOption", async ({ view, body, ack }) => {
+  await ack();
+
+  const pollId = JSON.parse(view.private_metadata).poll;
+  const optionName = view.state.values.option.option.value;
+
+  const poll = await Poll.findOne(parseInt(pollId));
+
+  if (!poll || !poll.open || !poll.othersCanAdd) {
+    return;
+  }
+
+  const option = new PollOption();
+
+  option.name = optionName;
+  option.poll = poll;
+  option.createdBy = body.user.id;
+
+  await option.save();
+  await refreshPoll(poll.id);
 });
 
 async function getPoll(id: number): Promise<Poll> {

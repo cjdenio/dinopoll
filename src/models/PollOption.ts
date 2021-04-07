@@ -17,6 +17,11 @@ class PollOption extends BaseEntity {
   @Column()
   name: string;
 
+  @Column({
+    nullable: true,
+  })
+  createdBy: string;
+
   @ManyToOne(() => Poll, (poll) => poll.options)
   poll: Poll;
 
