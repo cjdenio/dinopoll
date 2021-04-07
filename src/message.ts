@@ -2,6 +2,28 @@ import { Block, KnownBlock } from "@slack/bolt";
 import Poll from "./models/Poll";
 import PollOption from "./models/PollOption";
 
+function buildProgressBar(progress: number, maxLength: number): string {
+  const numElements = maxLength * progress;
+
+  if (numElements == 0) {
+    return "";
+  }
+
+  let bar = "\n`";
+
+  for (let i = 0; i < maxLength; i++) {
+    if (i < numElements) {
+      bar += "█";
+    } else {
+      bar += " ";
+    }
+  }
+
+  bar += "`";
+
+  return bar;
+}
+
 export default (poll: Poll): (Block | KnownBlock)[] => {
   let mostVotes: null | PollOption = poll.options.reduce((acc, curr) => {
     if (curr.votes.length > acc.votes.length) {
@@ -43,7 +65,7 @@ export default (poll: Poll): (Block | KnownBlock)[] => {
             !poll.anonymous
               ? "\n" + opt.votes.map((i) => "<@" + i.user + ">").join(", ")
               : ""
-          }`,
+          }${buildProgressBar(percentage / 100, 30)}`,
         },
         ...(poll.open
           ? {
