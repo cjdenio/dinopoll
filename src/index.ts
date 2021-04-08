@@ -80,12 +80,14 @@ export async function createPoll(poll: Poll): Promise<Poll> {
 
   await poll.save();
 
-  await app.client.chat.postEphemeral({
-    text: `Poll successfully created! Run \`/dinopoll-toggle ${poll.id}\` to close the poll once you're done.`,
-    channel: poll.channel,
-    user: poll.createdBy,
-    token: process.env.SLACK_TOKEN,
-  });
+  if (poll.createdBy) {
+    await app.client.chat.postEphemeral({
+      text: `Poll successfully created! Run \`/dinopoll-toggle ${poll.id}\` to close the poll once you're done.`,
+      channel: poll.channel,
+      user: poll.createdBy,
+      token: process.env.SLACK_TOKEN,
+    });
+  }
 
   return poll;
 }

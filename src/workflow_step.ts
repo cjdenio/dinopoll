@@ -97,7 +97,7 @@ const ws = new WorkflowStep("create_poll_workflow_step", {
       await createPoll(poll);
       await complete();
     } catch (e) {
-      await fail({ error: { message: e } });
+      await fail({ error: { message: e.message } });
     }
   },
 });
