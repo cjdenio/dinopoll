@@ -4,6 +4,7 @@ import {
   BlockElementAction,
   ExpressReceiver,
   Option,
+  WorkflowStep,
 } from "@slack/bolt";
 
 import express from "express";
@@ -18,6 +19,7 @@ import Poll from "./models/Poll";
 import PollOption from "./models/PollOption";
 import message from "./message";
 import Token from "./models/Token";
+import ws from "./workflow_step";
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET as string,
@@ -43,7 +45,6 @@ receiver.router.post("/create", express.json(), async (req, res) => {
     });
     poll.channel = channel;
 
-    // TODO
     poll.createdBy = token.user;
 
     await createPoll(poll);
@@ -65,7 +66,7 @@ const app = new App({
   receiver,
 });
 
-async function createPoll(poll: Poll): Promise<Poll> {
+export async function createPoll(poll: Poll): Promise<Poll> {
   poll = await poll.save();
 
   const resp = await app.client.chat.postMessage({
@@ -88,6 +89,8 @@ async function createPoll(poll: Poll): Promise<Poll> {
 
   return poll;
 }
+
+app.step(ws);
 
 app.command("/dinopoll", async ({ client, ack, command }) => {
   await client.views.open({

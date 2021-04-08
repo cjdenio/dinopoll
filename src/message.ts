@@ -112,7 +112,9 @@ export default (poll: Poll): (Block | KnownBlock)[] => {
       elements: [
         {
           type: "mrkdwn",
-          text: `Created by <@${poll.createdBy}> with \`/dinopoll\``,
+          text: poll.createdBy
+            ? `Created by <@${poll.createdBy}> with \`/dinopoll\``
+            : "Created with the Dinopoll workflow step",
         },
       ],
     },

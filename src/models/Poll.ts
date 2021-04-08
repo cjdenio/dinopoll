@@ -17,7 +17,9 @@ class Poll extends BaseEntity {
   @CreateDateColumn()
   createdOn: string;
 
-  @Column()
+  @Column({
+    nullable: true,
+  })
   createdBy: string;
 
   @Column()
