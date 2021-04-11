@@ -4,7 +4,6 @@ import {
   BlockElementAction,
   ExpressReceiver,
   Option,
-  WorkflowStep,
 } from "@slack/bolt";
 
 import express from "express";
@@ -27,7 +26,7 @@ const receiver = new ExpressReceiver({
 
 receiver.router.post("/create", express.json(), async (req, res) => {
   try {
-    const { title, options, channel } = req.body;
+    const { title, options, channel, othersCanAdd } = req.body;
     const tok = req.headers.authorization?.slice("Bearer ".length);
     if (!tok) {
       throw new Error("no token provided");
@@ -44,6 +43,7 @@ receiver.router.post("/create", express.json(), async (req, res) => {
       return option;
     });
     poll.channel = channel;
+    poll.othersCanAdd = othersCanAdd || false;
 
     poll.createdBy = token.user;
 
