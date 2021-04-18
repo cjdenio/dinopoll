@@ -5,9 +5,6 @@ import {
   BaseEntity,
   CreateDateColumn,
   ManyToOne,
-  OneToMany,
-  OneToOne,
-  JoinColumn,
 } from "typeorm";
 import Poll from "./Poll";
 import PollOption from "./PollOption";

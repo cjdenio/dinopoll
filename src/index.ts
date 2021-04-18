@@ -26,7 +26,7 @@ const receiver = new ExpressReceiver({
 
 receiver.router.post("/create", express.json(), async (req, res) => {
   try {
-    const { title, options, channel, othersCanAdd } = req.body;
+    const { title, options, channel, othersCanAdd, multipleVotes } = req.body;
     const tok = req.headers.authorization?.slice("Bearer ".length);
     if (!tok) {
       throw new Error("no token provided");
@@ -44,6 +44,7 @@ receiver.router.post("/create", express.json(), async (req, res) => {
     });
     poll.channel = channel;
     poll.othersCanAdd = othersCanAdd || false;
+    poll.multipleVotes = multipleVotes || false;
 
     poll.createdBy = token.user;
 
