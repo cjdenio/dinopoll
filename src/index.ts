@@ -4,6 +4,7 @@ import {
   BlockElementAction,
   ExpressReceiver,
   Option,
+  ViewUpdateResponseAction,
 } from "@slack/bolt";
 
 import express from "express";
@@ -110,12 +111,10 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
     (v: Option) => v.value == "othersCanAdd"
   );
 
-  const opts = [
-    values.option1.option1.value,
-    values.option2.option2.value,
-    values.option3.option3.value,
-    values.option4.option4.value,
-  ].filter((i) => i && i != "");
+  let opts = Object.entries(values)
+    .filter(([key, value]) => /option(\d+)/.test(key))
+    .map(([key, value]) => value[key].value)
+    .filter((i) => !!i);
 
   if (opts.length < 2 && !othersCanAdd) {
     await ack({
@@ -305,6 +304,19 @@ app.action(/addOption:(.+)/, async ({ ack, action, client, ...args }) => {
         },
       ],
     },
+  });
+});
+
+app.action("modalAddOption", async ({ ack, client, ...args }) => {
+  const body = args.body as BlockAction;
+
+  const { channel, optionCount } = JSON.parse(
+    body.view?.private_metadata as string
+  );
+
+  client.views.update({
+    view_id: body.view?.id,
+    view: createPollModal(channel, "", optionCount + 1),
   });
 });
 
