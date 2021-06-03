@@ -125,8 +125,6 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
       },
     });
     return;
-  } else {
-    await ack();
   }
 
   const options = opts.map((opt) => {
@@ -152,6 +150,8 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
     });
     return;
   }
+
+  await ack();
 
   let poll = new Poll();
 
