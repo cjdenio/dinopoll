@@ -140,7 +140,11 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
     (values.title.title.value as string).toLowerCase().includes("@channel") ||
     (values.title.title.value as string).toLowerCase().includes("<!channel>") ||
     (values.title.title.value as string).toLowerCase().includes("@everyone") ||
-    (values.title.title.value as string).toLowerCase().includes("<!everyone>")
+    (values.title.title.value as string)
+      .toLowerCase()
+      .includes("<!everyone>") ||
+    (values.title.title.value as string).toLowerCase().includes("@here") ||
+    (values.title.title.value as string).toLowerCase().includes("<!here>")
   ) {
     await ack({
       response_action: "errors",
