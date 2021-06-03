@@ -20,6 +20,7 @@ import PollOption from "./models/PollOption";
 import message from "./message";
 import Token from "./models/Token";
 import ws from "./workflow_step";
+import { checkInput } from "./util";
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET as string,
@@ -137,19 +138,14 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
   });
 
   if (
-    (values.title.title.value as string).toLowerCase().includes("@channel") ||
-    (values.title.title.value as string).toLowerCase().includes("<!channel>") ||
-    (values.title.title.value as string).toLowerCase().includes("@everyone") ||
-    (values.title.title.value as string)
-      .toLowerCase()
-      .includes("<!everyone>") ||
-    (values.title.title.value as string).toLowerCase().includes("@here") ||
-    (values.title.title.value as string).toLowerCase().includes("<!here>")
+    !checkInput(values.title.title.value) ||
+    opts.some((v) => !checkInput(v))
   ) {
     await ack({
       response_action: "errors",
       errors: {
-        title: "Please don't ping the channel",
+        title:
+          "You are not in the suders file. This incident will be reported.",
       },
     });
     return;
