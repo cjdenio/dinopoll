@@ -137,17 +137,29 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
     return option;
   });
 
-  if (
-    !checkInput(values.title.title.value) ||
-    opts.some((v) => !checkInput(v))
-  ) {
+  if (!checkInput(values.title.title.value)) {
     await ack({
       response_action: "errors",
       errors: {
         title:
-          "You are not in the suders file. This incident will be reported.",
+          "You are not in the sudoers file. This incident will be reported.",
       },
     });
+    return;
+  }
+
+  const invalidOpts = opts.filter((o) => !checkInput(o));
+
+  if (invalidOpts.length != 0) {
+    await ack({
+      response_action: "errors",
+      errors: invalidOpts.reduce((acc, _curr, idx) => {
+        acc[`option${idx + 1}`] =
+          "You are not in the sudoers file. This incident will be reported.";
+        return acc;
+      }, {}),
+    });
+
     return;
   }
 
@@ -336,10 +348,21 @@ app.action("modalAddOption", async ({ ack, client, ...args }) => {
 });
 
 app.view("addOption", async ({ view, body, ack }) => {
-  await ack();
-
   const pollId = JSON.parse(view.private_metadata).poll;
   const optionName = view.state.values.option.option.value;
+
+  if (!checkInput(optionName)) {
+    await ack({
+      response_action: "errors",
+      errors: {
+        option:
+          "You are not in the sudoers file. This incident will be reported.",
+      },
+    });
+    return;
+  }
+
+  await ack();
 
   const poll = await Poll.findOne(parseInt(pollId));
 
