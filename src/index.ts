@@ -138,6 +138,21 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
     return option;
   });
 
+  if (
+    (values.title.title.value as string).toLowerCase().includes("@channel") ||
+    (values.title.title.value as string).toLowerCase().includes("<!channel>") ||
+    (values.title.title.value as string).toLowerCase().includes("@everyone") ||
+    (values.title.title.value as string).toLowerCase().includes("<!everyone>")
+  ) {
+    await ack({
+      response_action: "errors",
+      errors: {
+        title: "Please don't ping the channel",
+      },
+    });
+    return;
+  }
+
   let poll = new Poll();
 
   poll.createdBy = body.user.id;
