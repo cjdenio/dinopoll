@@ -55,6 +55,7 @@ receiver.router.post("/create", express.json(), async (req, res) => {
     res.json({
       ok: true,
       message: "woop woop you did it",
+      poll,
     });
   } catch (err) {
     res.status(500).json({
