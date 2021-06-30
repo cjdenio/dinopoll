@@ -64,6 +64,39 @@ receiver.router.post("/create", express.json(), async (req, res) => {
   }
 });
 
+receiver.router.post("/toggle/:id", express.json(), async (req, res) => {
+  try {
+    const tok = req.headers.authorization?.slice("Bearer ".length);
+    if (!tok) {
+      throw new Error("no token provided");
+    }
+
+    const token = await Token.findOneOrFail({ token: tok });
+
+    // Find poll
+    const poll = await Poll.findOneOrFail({
+      id: parseInt(req.params.id),
+      createdBy: token.user,
+    });
+
+    poll.open = !poll.open;
+
+    await poll.save();
+
+    await refreshPoll(poll.id);
+
+    res.json({
+      ok: true,
+      message: "woop woop you did it",
+    });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      err: err.message,
+    });
+  }
+});
+
 const app = new App({
   token: process.env.SLACK_TOKEN,
   receiver,
