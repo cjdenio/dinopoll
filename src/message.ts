@@ -93,7 +93,7 @@ export default (poll: Poll): (Block | KnownBlock)[] => {
           : {}),
       };
     }),
-    ...(poll.othersCanAdd
+    ...(poll.open && poll.othersCanAdd
       ? [
           {
             type: "actions",
