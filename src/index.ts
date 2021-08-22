@@ -36,7 +36,7 @@ receiver.router.post("/create", express.json(), async (req, res) => {
 
     const token = await Token.findOneOrFail({ token: tok });
 
-    const poll = new Poll();
+    let poll = new Poll();
 
     poll.title = title;
     poll.options = options.map((i: string) => {
@@ -50,7 +50,7 @@ receiver.router.post("/create", express.json(), async (req, res) => {
 
     poll.createdBy = token.user;
 
-    await createPoll(poll);
+    poll = await createPoll(poll);
 
     res.json({
       ok: true,
