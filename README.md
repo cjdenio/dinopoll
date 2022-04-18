@@ -9,4 +9,4 @@
 - costs $0, and there are no limits (unlike _cough cough_ Polly and Simple Poll) 🚀
 - anonymous polling 🙈
 - open polling where anyone can add options 📋
-- workflow step for automating poll creation 🤖
+- ~~workflow step for automating poll creation 🤖~~ (feature temporarily removed)

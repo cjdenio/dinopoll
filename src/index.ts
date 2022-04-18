@@ -20,7 +20,6 @@ import Poll from "./models/Poll";
 import PollOption from "./models/PollOption";
 import message from "./message";
 import Token from "./models/Token";
-// import ws from "./workflow_step";
 import { checkInput } from "./util";
 
 const receiver = new ExpressReceiver({
@@ -129,8 +128,6 @@ export async function createPoll(poll: Poll): Promise<Poll> {
 
   return poll;
 }
-
-// app.step(ws);
 
 app.command("/dinopoll", async ({ client, ack, command }) => {
   await client.views.open({
