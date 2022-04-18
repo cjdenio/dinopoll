@@ -64,7 +64,7 @@ export default (
   optionCount: number = 4
 ): View => {
   return JSXSlack(
-    <Modal type="modal" title="Create Poll" callbackId="create" close="Cancel">
+    <Modal title="Create Poll" callbackId="create" close="Cancel">
       <Section>
         Send a poll to the <a href={`#${channel}`} /> channel
       </Section>

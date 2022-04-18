@@ -21,6 +21,7 @@ import PollOption from "./models/PollOption";
 import message from "./message";
 import Token from "./models/Token";
 import { checkInput } from "./util";
+import JSXSlack, { Input, Modal, Section } from "jsx-slack";
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET as string,
@@ -332,38 +333,53 @@ app.action(/addOption:(.+)/, async ({ ack, action, client, ...args }) => {
 
   await client.views.open({
     trigger_id,
-    view: {
-      type: "modal",
-      private_metadata: JSON.stringify({ poll: poll_id }),
-      callback_id: "addOption",
-      title: { type: "plain_text", text: "Add option" },
-      submit: {
-        type: "plain_text",
-        text: "Add",
-      },
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `Add an option to *${poll.title}*`,
-          },
-        },
-        {
-          type: "input",
-          label: {
-            type: "plain_text",
-            text: "Option",
-          },
-          block_id: "option",
-          element: {
-            type: "plain_text_input",
-            action_id: "option",
-          },
-        },
-      ],
-    },
+    view: JSXSlack(
+      <Modal title="Add Option" callbackId="addOption">
+        <Section>
+          Add an option to <b>{poll.title}</b>
+        </Section>
+
+        <Input label="Option" id="option" name="option" required />
+        <Input type="hidden" name="poll" value={poll_id} />
+
+        <Input type="submit" value="Add" />
+      </Modal>
+    ),
   });
+  // await client.views.open({
+  //   trigger_id,
+  //   view: {
+  //     type: "modal",
+  //     private_metadata: JSON.stringify({ poll: poll_id }),
+  //     callback_id: "addOption",
+  //     title: { type: "plain_text", text: "Add option" },
+  //     submit: {
+  //       type: "plain_text",
+  //       text: "Add",
+  //     },
+  //     blocks: [
+  //       {
+  //         type: "section",
+  //         text: {
+  //           type: "mrkdwn",
+  //           text: `Add an option to *${poll.title}*`,
+  //         },
+  //       },
+  //       {
+  //         type: "input",
+  //         label: {
+  //           type: "plain_text",
+  //           text: "Option",
+  //         },
+  //         block_id: "option",
+  //         element: {
+  //           type: "plain_text_input",
+  //           action_id: "option",
+  //         },
+  //       },
+  //     ],
+  //   },
+  // });
 });
 
 app.action("modalAddOption", async ({ ack, client, ...args }) => {

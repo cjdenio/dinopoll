@@ -21,10 +21,14 @@
   },
   "scripts": {
     "start": "node dist/index.js",
-    "dev": "nodemon src/index.ts",
+    "dev": "nodemon src/index.tsx",
     "build": "tsc"
   },
   "nodemonConfig": {
-    "ext": "ts,tsx"
+    "ext": "ts,tsx",
+    "execMap": {
+      "ts": "ts-node",
+      "tsx": "ts-node"
+    }
   }
 }
