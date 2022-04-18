@@ -1,10 +1,11 @@
+import "dotenv/config";
+
 import {
   App,
   BlockAction,
   BlockElementAction,
   ExpressReceiver,
   Option,
-  ViewUpdateResponseAction,
 } from "@slack/bolt";
 
 import express from "express";
@@ -19,7 +20,7 @@ import Poll from "./models/Poll";
 import PollOption from "./models/PollOption";
 import message from "./message";
 import Token from "./models/Token";
-import ws from "./workflow_step";
+// import ws from "./workflow_step";
 import { checkInput } from "./util";
 
 const receiver = new ExpressReceiver({
@@ -129,7 +130,7 @@ export async function createPoll(poll: Poll): Promise<Poll> {
   return poll;
 }
 
-app.step(ws);
+// app.step(ws);
 
 app.command("/dinopoll", async ({ client, ack, command }) => {
   await client.views.open({
@@ -156,7 +157,7 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
       response_action: "errors",
       errors: {
         option1:
-          'You need at least 2 options to create a poll, unless "Allow others to add options" is checked',
+          'You need at least 2 options to create a poll, unless "Let others add options" is checked',
       },
     });
     return;

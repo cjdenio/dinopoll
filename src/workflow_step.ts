@@ -1,5 +1,4 @@
 import { WorkflowStep, Option, Block, KnownBlock } from "@slack/bolt";
-import { ValueTransformer } from "typeorm";
 import { createPoll } from ".";
 import { inputBlocks } from "./modal";
 import Poll from "./models/Poll";
@@ -55,7 +54,7 @@ const ws = new WorkflowStep("create_poll_workflow_step", {
         response_action: "errors",
         errors: {
           option1:
-            'You need at least 2 options to create a poll, unless "Allow others to add options" is checked',
+            'You need at least 2 options to create a poll, unless "Let others add options" is checked',
         },
       });
       return;
