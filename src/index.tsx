@@ -21,7 +21,17 @@ import PollOption from "./models/PollOption";
 import message from "./message";
 import Token from "./models/Token";
 import { checkInput } from "./util";
-import JSXSlack, { Input, Modal, Section } from "jsx-slack";
+import JSXSlack, {
+  Actions,
+  Blocks,
+  Button,
+  Context,
+  Divider,
+  Input,
+  Modal,
+  Section,
+} from "jsx-slack";
+import { randomDinoFact } from "./dinoFacts";
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET as string,
@@ -61,7 +71,7 @@ receiver.router.post("/create", express.json(), async (req, res) => {
   } catch (err) {
     res.status(500).json({
       ok: false,
-      err: err.message,
+      err: (err as any).message,
     });
   }
 });
@@ -94,7 +104,7 @@ receiver.router.post("/toggle/:id", express.json(), async (req, res) => {
   } catch (err) {
     res.status(500).json({
       ok: false,
-      err: err.message,
+      err: (err as any).message,
     });
   }
 });
@@ -121,6 +131,20 @@ export async function createPoll(poll: Poll): Promise<Poll> {
   if (poll.createdBy) {
     await app.client.chat.postEphemeral({
       text: `Poll successfully created! Run \`/dinopoll-toggle ${poll.id}\` to close the poll once you're done.`,
+      blocks: JSXSlack(
+        <Blocks>
+          <Section>
+            Poll successfully created! Run{" "}
+            <code>/dinopoll-toggle {poll.id}</code> to close the poll once
+            you're done.
+            <Button actionId="dinoFact">:sauropod:</Button>
+          </Section>
+          <Context>
+            :information_source: Remember to save your poll's ID (
+            <code>{poll.id}</code>) if you'd like to close it later.
+          </Context>
+        </Blocks>
+      ),
       channel: poll.channel,
       user: poll.createdBy,
       token: process.env.SLACK_TOKEN,
@@ -129,6 +153,16 @@ export async function createPoll(poll: Poll): Promise<Poll> {
 
   return poll;
 }
+
+app.action("dinoFact", async ({ ack, body, client }) => {
+  await ack();
+
+  await client.chat.postEphemeral({
+    channel: body.channel!.id!,
+    user: body.user.id,
+    text: `:sauropod: Here's a dinosaur fact:\n\n>>> ${randomDinoFact()}`,
+  });
+});
 
 app.command("/dinopoll", async ({ client, ack, command }) => {
   await client.views.open({
@@ -346,40 +380,6 @@ app.action(/addOption:(.+)/, async ({ ack, action, client, ...args }) => {
       </Modal>
     ),
   });
-  // await client.views.open({
-  //   trigger_id,
-  //   view: {
-  //     type: "modal",
-  //     private_metadata: JSON.stringify({ poll: poll_id }),
-  //     callback_id: "addOption",
-  //     title: { type: "plain_text", text: "Add option" },
-  //     submit: {
-  //       type: "plain_text",
-  //       text: "Add",
-  //     },
-  //     blocks: [
-  //       {
-  //         type: "section",
-  //         text: {
-  //           type: "mrkdwn",
-  //           text: `Add an option to *${poll.title}*`,
-  //         },
-  //       },
-  //       {
-  //         type: "input",
-  //         label: {
-  //           type: "plain_text",
-  //           text: "Option",
-  //         },
-  //         block_id: "option",
-  //         element: {
-  //           type: "plain_text_input",
-  //           action_id: "option",
-  //         },
-  //       },
-  //     ],
-  //   },
-  // });
 });
 
 app.action("modalAddOption", async ({ ack, client, ...args }) => {
@@ -434,7 +434,7 @@ async function getPoll(id: number): Promise<Poll> {
     .leftJoinAndSelect("option.votes", "option.vote")
     .leftJoinAndSelect("poll.votes", "vote")
     .where("poll.id = :id", { id })
-    .orderBy("option.id", "ASC")
+    .orderBy({ "option.id": "ASC", "vote.createdOn": "ASC" })
     .getOneOrFail();
 }
 
