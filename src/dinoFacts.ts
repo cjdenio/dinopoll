@@ -63,7 +63,6 @@ const facts = [
   "Dinosaurs had different self-defense mechanisms. Some, like meat eaters, had sharp teeth. Plant eaters had long horns or sharp spikes. Other dinosaurs were covered in bony plates.",
   "It is estimated that trillions of dinosaur eggs were laid during the Mesozoic era, though fossilized eggs containing embryos are rare.",
   "All dinosaurs laid eggs. About 40 kinds of dinosaur eggs have been discovered.",
-  "Modern birds and reptiles have a single body opening for urination, defecation, and reproduction: a cloaca (Latin for “sewer”). Paleontologists believe that dinosaurs were similarly designed and reproduced by pressing their cloacas together in a “cloacal kiss.” Additionally, some dinosaurs may have had a penis like some birds do or other “intromittent organs” like crocodiles. Paleontologists believe a Tyrannosaurus rex male reproductive organ might have been up to 12 feet in length.",
   "Like birds and reptiles today, dinosaurs built nests and laid eggs. Some even fed and protected their babies.",
   "Plant-eating dinosaurs often lived together for protection, like herding animals today do. The herds ranged from just a few adults and their young to thousands of animals.",
   "Sauropods (“Lizard-Footed”) could travel many miles a day on their huge legs. Their fossilized “trackways” or “superhighways” can still be seen today.",
