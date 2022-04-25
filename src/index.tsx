@@ -429,16 +429,13 @@ app.view("addOption", async ({ view, body, ack }) => {
 });
 
 async function getPoll(id: number): Promise<Poll> {
-  const query = Poll.createQueryBuilder("poll")
+  return await Poll.createQueryBuilder("poll")
     .leftJoinAndSelect("poll.options", "option")
     .leftJoinAndSelect("option.votes", "option.vote")
     .leftJoinAndSelect("poll.votes", "vote")
     .where("poll.id = :id", { id })
-    .orderBy({ "option.id": "ASC", "option.vote.createdOn": "ASC" });
-
-  console.log(query.getSql());
-
-  return await query.getOneOrFail();
+    .orderBy({ "option.id": "ASC", "option.vote.createdOn": "ASC" })
+    .getOneOrFail();
 }
 
 async function refreshPoll(pollId: number) {
