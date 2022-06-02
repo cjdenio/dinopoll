@@ -1,6 +1,6 @@
 import { ActionsBlock, Block, KnownBlock, SectionBlock } from "@slack/bolt";
-import Poll from "./models/Poll";
-import PollOption from "./models/PollOption";
+import { Poll, PollOption } from "@prisma/client";
+import { PollOptionWithVotes, PollWithOptions } from "./prisma";
 
 function buildProgressBar(progress: number, maxLength: number): string {
   const numElements = maxLength * progress;
@@ -24,8 +24,8 @@ function buildProgressBar(progress: number, maxLength: number): string {
   return bar;
 }
 
-export default (poll: Poll): (Block | KnownBlock)[] => {
-  let mostVotes: null | PollOption =
+export default (poll: PollWithOptions): (Block | KnownBlock)[] => {
+  let mostVotes: PollOptionWithVotes | null =
     poll.options.length == 0
       ? null
       : poll.options.reduce((acc, curr) => {
@@ -60,7 +60,7 @@ export default (poll: Poll): (Block | KnownBlock)[] => {
       },
     },
     ...poll.options.map((opt): Block | KnownBlock => {
-      let percentage = Math.round((opt.votes.length / poll.votes.length) * 100);
+      let percentage = Math.round((opt.votes.length / poll._count.votes) * 100);
       if (isNaN(percentage)) {
         percentage = 0;
       }

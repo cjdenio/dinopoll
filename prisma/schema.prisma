@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Poll {
+  id            Int          @id() @default(autoincrement())
+  createdOn     DateTime     @default(now()) @db.Timestamp(6)
+  createdBy     String?      @db.VarChar
+  title         String       @db.VarChar
+  anonymous     Boolean      @default(false)
+  multipleVotes Boolean      @default(false)
+  othersCanAdd  Boolean      @default(false)
+  open          Boolean      @default(true)
+  timestamp     String?      @db.VarChar
+  channel       String       @db.VarChar
+  options       PollOption[]
+  votes         Vote[]
+
+  @@map("poll")
+}
+
+model PollOption {
+  id        Int     @id() @default(autoincrement())
+  name      String  @db.VarChar
+  createdBy String? @db.VarChar
+  pollId    Int
+  poll      Poll    @relation(fields: [pollId], references: [id])
+  votes     Vote[]
+
+  @@map("poll_option")
+}
+
+model Token {
+  id        Int      @id() @default(autoincrement())
+  createdOn DateTime @default(now()) @db.Timestamp(6)
+  user      String   @db.VarChar
+  token     String   @unique @db.VarChar
+
+  @@map("token")
+}
+
+model Vote {
+  id        Int        @id() @default(autoincrement())
+  createdOn DateTime   @default(now()) @db.Timestamp(6)
+  user      String     @db.VarChar
+  optionId  Int
+  pollId    Int
+  option    PollOption @relation(fields: [optionId], references: [id])
+  poll      Poll       @relation(fields: [pollId], references: [id])
+
+
+  @@unique([user, optionId])
+  @@map("vote")
+}

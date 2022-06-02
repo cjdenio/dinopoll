@@ -10,16 +10,9 @@ import {
 
 import express from "express";
 
-import "reflect-metadata";
-import { createConnection } from "typeorm";
-
 import createPollModal from "./modal";
 
-import Vote from "./models/Vote";
-import Poll from "./models/Poll";
-import PollOption from "./models/PollOption";
 import message from "./message";
-import Token from "./models/Token";
 import { checkInput } from "./util";
 import JSXSlack, {
   Actions,
@@ -32,6 +25,8 @@ import JSXSlack, {
   Section,
 } from "jsx-slack";
 import { randomDinoFact } from "./dinoFacts";
+import { PollWithOptions, prisma } from "./prisma";
+import { Poll, PollOption, Vote } from "@prisma/client";
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET as string,
@@ -45,23 +40,31 @@ receiver.router.post("/create", express.json(), async (req, res) => {
       throw new Error("no token provided");
     }
 
-    const token = await Token.findOneOrFail({ token: tok });
+    const token = await prisma.token.findUnique({ where: { token: tok } });
+    if (token === null) {
+      throw new Error("invalid token");
+    }
 
-    let poll = new Poll();
-
-    poll.title = title;
-    poll.options = options.map((i: string) => {
-      const option = new PollOption();
-      option.name = i;
-      return option;
+    let poll = await prisma.poll.create({
+      data: {
+        title,
+        options: {
+          createMany: {
+            data: options.map((i: string) => ({
+              name: i,
+            })),
+          },
+        },
+        channel,
+        othersCanAdd,
+        multipleVotes,
+        createdBy: token.user,
+      },
+      include: { options: { select: { id: true, name: true } } },
     });
-    poll.channel = channel;
-    poll.othersCanAdd = othersCanAdd || false;
-    poll.multipleVotes = multipleVotes || false;
 
-    poll.createdBy = token.user;
-
-    poll = await createPoll(poll);
+    const { timestamp } = await postPoll(poll);
+    poll.timestamp = timestamp;
 
     res.json({
       ok: true,
@@ -83,17 +86,29 @@ receiver.router.post("/toggle/:id", express.json(), async (req, res) => {
       throw new Error("no token provided");
     }
 
-    const token = await Token.findOneOrFail({ token: tok });
+    const token = await prisma.token.findUnique({ where: { token: tok } });
+    if (token === null) {
+      throw new Error("invalid token");
+    }
 
     // Find poll
-    const poll = await Poll.findOneOrFail({
-      id: parseInt(req.params.id),
-      createdBy: token.user,
+    const poll = await prisma.poll.findUnique({
+      where: {
+        id: parseInt(req.params.id),
+      },
     });
+    if (!poll) {
+      throw new Error("can't find poll");
+    }
 
-    poll.open = !poll.open;
-
-    await poll.save();
+    await prisma.poll.update({
+      where: {
+        id: poll.id,
+      },
+      data: {
+        open: !poll.open,
+      },
+    });
 
     await refreshPoll(poll.id);
 
@@ -114,9 +129,7 @@ const app = new App({
   receiver,
 });
 
-export async function createPoll(poll: Poll): Promise<Poll> {
-  poll = await poll.save();
-
+export async function postPoll(poll: Poll): Promise<Poll> {
   const resp = await app.client.chat.postMessage({
     blocks: message(await getPoll(poll.id)),
     text: "This message can't be displayed in your client.",
@@ -124,9 +137,14 @@ export async function createPoll(poll: Poll): Promise<Poll> {
     token: process.env.SLACK_TOKEN,
   });
 
-  poll.timestamp = (resp.message as { ts: string }).ts;
-
-  await poll.save();
+  poll = await prisma.poll.update({
+    where: {
+      id: poll.id,
+    },
+    data: {
+      timestamp: resp.message?.ts,
+    },
+  });
 
   if (poll.createdBy) {
     await app.client.chat.postEphemeral({
@@ -175,14 +193,14 @@ app.command("/dinopoll", async ({ client, ack, command }) => {
 
 app.view("create", async ({ ack, payload, body, view, client }) => {
   const values = view.state.values;
-  const othersCanAdd = values.options.options.selected_options.some(
+  const othersCanAdd = values.options.options.selected_options!.some(
     (v: Option) => v.value == "othersCanAdd"
   );
 
   let opts = Object.entries(values)
     .filter(([key, value]) => /option(\d+)/.test(key))
     .map(([key, value]) => value[key].value)
-    .filter((i) => !!i);
+    .filter((i): i is string => !!i);
 
   if (opts.length < 2 && !othersCanAdd) {
     await ack({
@@ -195,16 +213,7 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
     return;
   }
 
-  const options = opts.map((opt) => {
-    const option = new PollOption();
-
-    option.name = opt;
-    option.votes = [];
-
-    return option;
-  });
-
-  if (!checkInput(values.title.title.value)) {
+  if (!checkInput(values.title.title.value!)) {
     await ack({
       response_action: "errors",
       errors: {
@@ -215,16 +224,19 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
     return;
   }
 
-  const invalidOpts = opts.filter((o) => !checkInput(o));
+  const invalidOpts = opts.filter((opt) => !checkInput(opt));
 
   if (invalidOpts.length != 0) {
     await ack({
       response_action: "errors",
-      errors: invalidOpts.reduce((acc, _curr, idx) => {
-        acc[`option${idx + 1}`] =
-          "You are not in the sudoers file. This incident will be reported.";
-        return acc;
-      }, {}),
+      errors: invalidOpts.reduce<Record<`option${number}`, string>>(
+        (acc, _curr, idx) => {
+          acc[`option${idx + 1}`] =
+            "You are not in the sudoers file. This incident will be reported.";
+          return acc;
+        },
+        {}
+      ),
     });
 
     return;
@@ -232,34 +244,50 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
 
   await ack();
 
-  let poll = new Poll();
+  let poll = await prisma.poll.create({
+    data: {
+      createdBy: body.user.id,
+      title: values.title.title.value!,
+      anonymous: values.options.options.selected_options?.some(
+        (v) => v.value == "anonymous"
+      ),
+      multipleVotes: values.options.options.selected_options?.some(
+        (v) => v.value == "multipleVotes"
+      ),
+      othersCanAdd,
+      channel: JSON.parse(view.private_metadata).channel,
+      options: {
+        createMany: {
+          data: opts.map((name) => ({ name })),
+        },
+      },
+    },
+  });
 
-  poll.createdBy = body.user.id;
-  poll.title = values.title.title.value;
-  poll.options = options;
-  poll.anonymous = values.options.options.selected_options.some(
-    (v: Option) => v.value == "anonymous"
-  );
-  poll.multipleVotes = values.options.options.selected_options.some(
-    (v: Option) => v.value == "multipleVotes"
-  );
-  poll.othersCanAdd = othersCanAdd;
-  poll.channel = JSON.parse(view.private_metadata).channel;
-
-  await createPoll(poll);
+  await postPoll(poll);
 });
 
 app.command("/dinopoll-toggle", async ({ ack, command }) => {
   try {
     // Find poll
-    const poll = await Poll.findOneOrFail({
-      id: parseInt(command.text),
-      createdBy: command.user_id,
+    const poll = await prisma.poll.findFirst({
+      where: {
+        id: parseInt(command.text),
+        createdBy: command.user_id,
+      },
     });
+    if (!poll) {
+      return await ack("poll not found.");
+    }
 
-    poll.open = !poll.open;
-
-    await poll.save();
+    await prisma.poll.update({
+      where: {
+        id: poll.id,
+      },
+      data: {
+        open: !poll.open,
+      },
+    });
 
     await refreshPoll(poll.id);
 
@@ -278,10 +306,13 @@ app.action(/vote:(.+):(.+)/, async ({ action, ack, payload, body }) => {
     return;
   }
 
-  const [, poll_id, option_id] = matches;
+  const [, pollId, optionId] = matches;
 
-  let poll = await Poll.findOne(parseInt(poll_id), {
-    relations: ["options"],
+  const poll = await prisma.poll.findUnique({
+    where: { id: parseInt(pollId) },
+    include: {
+      options: true,
+    },
   });
 
   if (!poll || !poll.open) {
@@ -292,58 +323,59 @@ app.action(/vote:(.+):(.+)/, async ({ action, ack, payload, body }) => {
     // the poll allows for multiple votes
 
     // check to see if the user's already voted for this option
-    const userVote = await Vote.findOne(
-      {
-        user: body.user.id,
-        poll: { id: parseInt(poll_id) },
-        option: { id: parseInt(option_id) },
+    const userVote = await prisma.vote.findUnique({
+      where: {
+        user_optionId: { user: body.user.id, optionId: parseInt(optionId) },
       },
-      { relations: ["option"] }
-    );
+      include: { option: true },
+    });
 
     if (userVote) {
-      await userVote.remove();
-      await refreshPoll(parseInt(poll_id));
+      await prisma.vote.delete({
+        where: { id: userVote.id },
+      });
+      await refreshPoll(parseInt(pollId));
       return;
     }
   } else {
     // the poll only allows 1 vote
 
     // Check to see if the user's already voted
-    const userVote = await Vote.findOne(
-      {
+    const userVote = await prisma.vote.findFirst({
+      where: {
         user: body.user.id,
-        poll: { id: parseInt(poll_id) },
+        pollId: parseInt(pollId),
       },
-      { relations: ["option"] }
-    );
+      include: {
+        option: true,
+      },
+    });
 
     if (userVote) {
       // They've already voted
-      await userVote.remove();
+      await prisma.vote.delete({
+        where: { id: userVote.id },
+      });
 
       // Are they voting for the same option? if so, don't switch their vote
-      if (userVote.option.id == parseInt(option_id)) {
-        await refreshPoll(parseInt(poll_id));
+      if (userVote.option.id == parseInt(optionId)) {
+        await refreshPoll(parseInt(pollId));
         return;
       }
     }
   }
 
   // We've reached the end, so VOTE!!!
-  const option = await PollOption.findOneOrFail(parseInt(option_id));
-
-  // Create a vote
-  const vote = new Vote();
-
-  vote.user = body.user.id;
-  vote.option = option;
-  vote.poll = poll;
-
-  await vote.save();
+  await prisma.vote.create({
+    data: {
+      user: body.user.id,
+      optionId: parseInt(optionId),
+      pollId: poll.id,
+    },
+  });
 
   // Refresh the poll
-  await refreshPoll(parseInt(poll_id));
+  await refreshPoll(parseInt(pollId));
 });
 
 app.action(/addOption:(.+)/, async ({ ack, action, client, ...args }) => {
@@ -357,9 +389,13 @@ app.action(/addOption:(.+)/, async ({ ack, action, client, ...args }) => {
     return;
   }
 
-  const [, poll_id] = matches;
+  const [, pollId] = matches;
 
-  let poll = await Poll.findOne(parseInt(poll_id));
+  const poll = await prisma.poll.findUnique({
+    where: {
+      id: parseInt(pollId),
+    },
+  });
 
   if (!poll || !poll.open || !poll.othersCanAdd) {
     return;
@@ -374,7 +410,7 @@ app.action(/addOption:(.+)/, async ({ ack, action, client, ...args }) => {
         </Section>
 
         <Input label="Option" id="option" name="option" required />
-        <Input type="hidden" name="poll" value={poll_id} />
+        <Input type="hidden" name="poll" value={pollId} />
 
         <Input type="submit" value="Add" />
       </Modal>
@@ -397,7 +433,7 @@ app.action("modalAddOption", async ({ ack, client, ...args }) => {
 
 app.view("addOption", async ({ view, body, ack }) => {
   const pollId = JSON.parse(view.private_metadata).poll;
-  const optionName = view.state.values.option.option.value;
+  const optionName = view.state.values.option.option.value!;
 
   if (!checkInput(optionName)) {
     await ack({
@@ -412,52 +448,58 @@ app.view("addOption", async ({ view, body, ack }) => {
 
   await ack();
 
-  const poll = await Poll.findOne(parseInt(pollId));
+  const poll = await prisma.poll.findUnique({
+    where: {
+      id: parseInt(pollId),
+    },
+  });
 
   if (!poll || !poll.open || !poll.othersCanAdd) {
     return;
   }
 
-  const option = new PollOption();
+  await prisma.pollOption.create({
+    data: {
+      name: optionName,
+      pollId: poll.id,
+      createdBy: body.user.id,
+    },
+  });
 
-  option.name = optionName;
-  option.poll = poll;
-  option.createdBy = body.user.id;
-
-  await option.save();
   await refreshPoll(poll.id);
 });
 
-async function getPoll(id: number): Promise<Poll> {
-  return await Poll.createQueryBuilder("poll")
-    .leftJoinAndSelect("poll.options", "option")
-    .leftJoinAndSelect("option.votes", "option.vote")
-    .leftJoinAndSelect("poll.votes", "vote")
-    .where("poll.id = :id", { id })
-    .orderBy({ "option.id": "ASC", "option.vote.createdOn": "ASC" })
-    .getOneOrFail();
+async function getPoll(id: number): Promise<PollWithOptions> {
+  const poll = await prisma.poll.findUnique({
+    where: {
+      id,
+    },
+    include: {
+      options: {
+        orderBy: { id: "asc" },
+        include: { votes: { orderBy: { createdOn: "asc" } } },
+      },
+      _count: { select: { votes: true } },
+    },
+  });
+
+  return poll!;
 }
 
 async function refreshPoll(pollId: number) {
   const poll = await getPoll(pollId);
+  if (!poll) return;
 
   await app.client.chat.update({
     token: process.env.SLACK_TOKEN,
     text: "This message can't be displayed in your client.",
     blocks: message(poll),
-    ts: poll.timestamp,
+    ts: poll.timestamp!,
     channel: poll.channel,
   });
 }
 
 async function main() {
-  await createConnection({
-    type: "postgres",
-    url: process.env.DATABASE_URL,
-    entities: [Poll, PollOption, Vote, Token],
-    synchronize: true,
-  });
-
   await app.start(parseInt(process.env.PORT as string) || 3000);
   console.log("App started");
 }
