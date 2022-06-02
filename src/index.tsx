@@ -15,18 +15,16 @@ import createPollModal from "./modal";
 import message from "./message";
 import { checkInput } from "./util";
 import JSXSlack, {
-  Actions,
   Blocks,
   Button,
   Context,
-  Divider,
   Input,
   Modal,
   Section,
 } from "jsx-slack";
 import { randomDinoFact } from "./dinoFacts";
 import { PollWithOptions, prisma } from "./prisma";
-import { Poll, PollOption, Vote } from "@prisma/client";
+import { Poll } from "@prisma/client";
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET as string,
@@ -45,7 +43,7 @@ receiver.router.post("/create", express.json(), async (req, res) => {
       throw new Error("invalid token");
     }
 
-    let poll = await prisma.poll.create({
+    const poll = await prisma.poll.create({
       data: {
         title,
         options: {
@@ -74,7 +72,7 @@ receiver.router.post("/create", express.json(), async (req, res) => {
   } catch (err) {
     res.status(500).json({
       ok: false,
-      err: (err as any).message,
+      err: (err as Error).message,
     });
   }
 });
@@ -119,7 +117,7 @@ receiver.router.post("/toggle/:id", express.json(), async (req, res) => {
   } catch (err) {
     res.status(500).json({
       ok: false,
-      err: (err as any).message,
+      err: (err as Error).message,
     });
   }
 });
@@ -191,14 +189,14 @@ app.command("/dinopoll", async ({ client, ack, command }) => {
   await ack();
 });
 
-app.view("create", async ({ ack, payload, body, view, client }) => {
+app.view("create", async ({ ack, body, view }) => {
   const values = view.state.values;
   const othersCanAdd = values.options.options.selected_options!.some(
-    (v: Option) => v.value == "othersCanAdd"
+    (v: Option) => v.value === "othersCanAdd"
   );
 
-  let opts = Object.entries(values)
-    .filter(([key, value]) => /option(\d+)/.test(key))
+  const opts = Object.entries(values)
+    .filter(([key]) => /option(\d+)/.test(key))
     .map(([key, value]) => value[key].value)
     .filter((i): i is string => !!i);
 
@@ -226,7 +224,7 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
 
   const invalidOpts = opts.filter((opt) => !checkInput(opt));
 
-  if (invalidOpts.length != 0) {
+  if (invalidOpts.length !== 0) {
     await ack({
       response_action: "errors",
       errors: invalidOpts.reduce<Record<`option${number}`, string>>(
@@ -244,15 +242,15 @@ app.view("create", async ({ ack, payload, body, view, client }) => {
 
   await ack();
 
-  let poll = await prisma.poll.create({
+  const poll = await prisma.poll.create({
     data: {
       createdBy: body.user.id,
       title: values.title.title.value!,
       anonymous: values.options.options.selected_options?.some(
-        (v) => v.value == "anonymous"
+        (v) => v.value === "anonymous"
       ),
       multipleVotes: values.options.options.selected_options?.some(
-        (v) => v.value == "multipleVotes"
+        (v) => v.value === "multipleVotes"
       ),
       othersCanAdd,
       channel: JSON.parse(view.private_metadata).channel,
@@ -297,7 +295,7 @@ app.command("/dinopoll-toggle", async ({ ack, command }) => {
   }
 });
 
-app.action(/vote:(.+):(.+)/, async ({ action, ack, payload, body }) => {
+app.action(/vote:(.+):(.+)/, async ({ action, ack, body }) => {
   await ack();
 
   const action_id = (action as BlockElementAction).action_id;
@@ -358,7 +356,7 @@ app.action(/vote:(.+):(.+)/, async ({ action, ack, payload, body }) => {
       });
 
       // Are they voting for the same option? if so, don't switch their vote
-      if (userVote.option.id == parseInt(optionId)) {
+      if (userVote.option.id === parseInt(optionId)) {
         await refreshPoll(parseInt(pollId));
         return;
       }
@@ -419,6 +417,8 @@ app.action(/addOption:(.+)/, async ({ ack, action, client, ...args }) => {
 });
 
 app.action("modalAddOption", async ({ ack, client, ...args }) => {
+  await ack();
+
   const body = args.body as BlockAction;
 
   const { channel, optionCount } = JSON.parse(

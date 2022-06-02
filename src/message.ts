@@ -1,11 +1,10 @@
-import { ActionsBlock, Block, KnownBlock, SectionBlock } from "@slack/bolt";
-import { Poll, PollOption } from "@prisma/client";
+import { ActionsBlock, Block, KnownBlock } from "@slack/bolt";
 import { PollOptionWithVotes, PollWithOptions } from "./prisma";
 
 function buildProgressBar(progress: number, maxLength: number): string {
   const numElements = maxLength * progress;
 
-  if (numElements == 0) {
+  if (numElements === 0) {
     return "";
   }
 
@@ -26,7 +25,7 @@ function buildProgressBar(progress: number, maxLength: number): string {
 
 export default (poll: PollWithOptions): (Block | KnownBlock)[] => {
   let mostVotes: PollOptionWithVotes | null =
-    poll.options.length == 0
+    poll.options.length === 0
       ? null
       : poll.options.reduce((acc, curr) => {
           if (curr.votes.length > acc.votes.length) {
@@ -36,11 +35,11 @@ export default (poll: PollWithOptions): (Block | KnownBlock)[] => {
           }
         });
 
-  if (mostVotes?.votes.length == 0) {
+  if (mostVotes?.votes.length === 0) {
     mostVotes = null;
   }
 
-  let tags = [];
+  const tags = [];
 
   if (poll.anonymous) {
     tags.push("responses are anonymous");
@@ -70,9 +69,9 @@ export default (poll: PollWithOptions): (Block | KnownBlock)[] => {
         text: {
           type: "mrkdwn",
           text: `${
-            opt == mostVotes && !poll.open ? ":white_check_mark: " : ""
+            opt === mostVotes && !poll.open ? ":white_check_mark: " : ""
           }${opt.name} _(${opt.votes.length} vote${
-            opt.votes.length == 1 ? "" : "s"
+            opt.votes.length === 1 ? "" : "s"
           }, *${percentage}%*)_${
             !poll.anonymous
               ? "\n" + opt.votes.map((i) => "<@" + i.user + ">").join(", ")
