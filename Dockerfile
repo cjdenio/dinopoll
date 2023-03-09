@@ -4,11 +4,6 @@ WORKDIR /usr/src/app
 
 COPY . .
 
-RUN yarn install
-
-RUN node --version
-RUN yarn tsc --version
-
-RUN yarn build
+RUN yarn install && yarn build
 
 CMD ["yarn", "start"]
