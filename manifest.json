@@ -1,0 +1,58 @@
+{
+    "display_information": {
+        "name": "dinopoll",
+        "description": "Quick and easy polling for Hack Club!",
+        "background_color": "#2c2d30"
+    },
+    "features": {
+        "bot_user": {
+            "display_name": "dinopoll",
+            "always_online": false
+        },
+        "slash_commands": [
+            {
+                "command": "/dinopoll",
+                "url": "https://dinopoll.host.calebdenio.me/slack/events",
+                "description": "Create a Dinopoll!",
+                "should_escape": false
+            },
+            {
+                "command": "/dinopoll-toggle",
+                "url": "https://dinopoll.host.calebdenio.me/slack/events",
+                "description": "Toggle a Dinopoll",
+                "should_escape": false
+            }
+        ],
+        "workflow_steps": [
+            {
+                "name": "Create a poll",
+                "callback_id": "create_poll_workflow_step"
+            }
+        ]
+    },
+    "oauth_config": {
+        "scopes": {
+            "bot": [
+                "chat:write",
+                "chat:write.public",
+                "commands",
+                "workflow.steps:execute"
+            ]
+        }
+    },
+    "settings": {
+        "event_subscriptions": {
+            "request_url": "https://dinopoll.host.calebdenio.me/slack/events",
+            "bot_events": [
+                "workflow_step_execute"
+            ]
+        },
+        "interactivity": {
+            "is_enabled": true,
+            "request_url": "https://dinopoll.host.calebdenio.me/slack/events"
+        },
+        "org_deploy_enabled": false,
+        "socket_mode_enabled": false,
+        "token_rotation_enabled": false
+    }
+}
